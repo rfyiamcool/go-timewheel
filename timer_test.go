@@ -11,6 +11,21 @@ func callback() {
 	fmt.Println("callback !!!")
 }
 
+func checkTimeCost(t *testing.T, start, end time.Time, before int, after int) bool {
+	due := end.Sub(start)
+	if due > time.Duration(after)*time.Millisecond {
+		t.Error("delay run")
+		return false
+	}
+
+	if due < time.Duration(before)*time.Millisecond {
+		t.Error("run ahead")
+		return false
+	}
+
+	return true
+}
+
 func newTimeWheel() *TimeWheel {
 	tw, err := NewTimeWheel(100*time.Millisecond, 600)
 	if err != nil {
@@ -40,18 +55,17 @@ func TestAddFunc(t *testing.T) {
 
 	for index := 1; index < 6; index++ {
 		queue := make(chan bool, 0)
-		now := time.Now()
+		start := time.Now()
 		tw.Add(time.Duration(index)*time.Second, func() {
 			queue <- true
 		})
 
 		<-queue
 
-		due := 200 + index*1000
-		if time.Since(now) > time.Duration(due)*time.Millisecond {
-			t.Error("after")
-		}
-		fmt.Println(time.Since(now).String())
+		before := index*1000 - 200
+		after := index*1000 + 200
+		checkTimeCost(t, start, time.Now(), before, after)
+		fmt.Println("time since: ", time.Since(start).String())
 	}
 }
 
@@ -72,10 +86,8 @@ func TestAddCron(t *testing.T) {
 		case <-exitTimer.C:
 			return
 		case now := <-queue:
-			if now.Sub(lastTs) > time.Duration(time.Millisecond*1300) {
-				t.Error("after")
-			}
-			fmt.Println("cost: ", now.Sub(lastTs))
+			checkTimeCost(t, lastTs, now, 900, 1200)
+			fmt.Println("time since: ", now.Sub(lastTs))
 			lastTs = now
 		}
 	}
@@ -87,10 +99,11 @@ func TestStopTimer(t *testing.T) {
 	defer tw.Stop()
 
 	timer := tw.NewTimer(time.Millisecond * 500)
+
+	exitTimer := time.NewTimer(1 * time.Second)
 	time.Sleep(100 * time.Millisecond)
 	timer.Stop()
 
-	exitTimer := time.NewTimer(1 * time.Second)
 	select {
 	case <-exitTimer.C:
 	case <-timer.C:
@@ -104,10 +117,11 @@ func TestStopTicker(t *testing.T) {
 	defer tw.Stop()
 
 	timer := tw.NewTicker(time.Millisecond * 500)
+
+	exitTimer := time.NewTimer(1 * time.Second)
 	time.Sleep(100 * time.Millisecond)
 	timer.Stop()
 
-	exitTimer := time.NewTimer(1 * time.Second)
 	select {
 	case <-exitTimer.C:
 	case <-timer.C:
@@ -130,13 +144,9 @@ func TestTicker(t *testing.T) {
 	for {
 		select {
 		case <-ticker.C:
-			if time.Since(last) > time.Duration(1200*time.Millisecond) {
-				fmt.Println("delay run", time.Since(last))
-				t.Fatal()
-			}
-
-			fmt.Println(time.Since(last))
+			checkTimeCost(t, last, time.Now(), 900, 1200)
 			last = time.Now()
+			fmt.Println(time.Since(last))
 
 		case <-ticker.Ctx.Done():
 			return
@@ -189,7 +199,6 @@ func TestBatchTicker(t *testing.T) {
 			for {
 				select {
 				case <-ticker.C:
-					callback()
 				case <-ticker.Ctx.Done():
 					return
 				}
@@ -205,13 +214,12 @@ func TestAfter(t *testing.T) {
 	defer tw.Stop()
 
 	for index := 1; index < 6; index++ {
-		now := time.Now()
+		ts := time.Now()
 		<-tw.After(time.Duration(index) * time.Second)
-		due := 200 + index*1000
-		if time.Since(now) > time.Duration(due)*time.Millisecond {
-			t.Error("after")
-		}
-		fmt.Println(time.Since(now).String())
+		before := index*1000 - 200
+		after := index*1000 + 200
+		checkTimeCost(t, ts, time.Now(), before, after)
+		fmt.Println(time.Since(ts).String())
 	}
 }
 
@@ -223,17 +231,17 @@ func TestAfterFunc(t *testing.T) {
 	queue := make(chan bool, 1)
 	timer := tw.AfterFunc(1*time.Second, func() {
 		queue <- true
-		time.Sleep(1 * time.Second)
 	})
+	<-queue
 
 	for index := 1; index < 6; index++ {
-		now := time.Now()
+		timer.Reset(time.Duration(index) * time.Second)
+		ts := time.Now()
 		<-queue
-		if time.Since(now) > time.Duration(1200*time.Millisecond) {
-			t.Error("after")
-		}
-		timer.Reset(1 * time.Second)
-		fmt.Println(time.Since(now).String())
+		before := index*1000 - 200
+		after := index*1000 + 200
+		checkTimeCost(t, ts, time.Now(), before, after)
+		fmt.Println(time.Since(ts).String())
 	}
 }
 
@@ -245,19 +253,18 @@ func TestTimerReset(t *testing.T) {
 	timer := tw.NewTimer(100 * time.Millisecond)
 	now := time.Now()
 	<-timer.C
-	if time.Since(now) > time.Duration(time.Millisecond*220) {
-		t.Error("after")
-	}
 	fmt.Println(time.Since(now).String())
+	checkTimeCost(t, now, time.Now(), 80, 220)
 
 	for index := 1; index < 6; index++ {
 		now := time.Now()
 		timer.Reset(time.Duration(index) * time.Second)
 		<-timer.C
-		due := 200 + index*1000
-		if time.Since(now) > time.Duration(due)*time.Millisecond {
-			t.Error("after")
-		}
+
+		before := index*1000 - 200
+		after := index*1000 + 200
+
+		checkTimeCost(t, now, time.Now(), before, after)
 		fmt.Println(time.Since(now).String())
 	}
 }
@@ -287,13 +294,12 @@ func TestHwTimer(t *testing.T) {
 	defer tw.Stop()
 
 	worker := 10
-	delay := 1
 
 	wg := sync.WaitGroup{}
 	for index := 0; index < worker; index++ {
 		wg.Add(1)
 		var (
-			htimer = tw.NewTimer(time.Duration(delay) * time.Second)
+			htimer = tw.NewTimer(1 * time.Second)
 			maxnum = 5
 			incr   = 0
 		)
@@ -301,17 +307,11 @@ func TestHwTimer(t *testing.T) {
 			defer wg.Done()
 			for incr < maxnum {
 				now := time.Now()
-				target := time.Now().Add(time.Duration(1) * time.Second)
 				select {
 				case <-htimer.C:
-					htimer.Reset(time.Duration(delay) * time.Second)
+					htimer.Reset(1 * time.Second)
 					end := time.Now()
-					if end.Before(target.Add(-200 * time.Millisecond)) {
-						t.Error("before 1s run")
-					}
-					if end.After(target.Add(200 * time.Millisecond)) {
-						t.Error("delay 1s run")
-					}
+					checkTimeCost(t, now, end, 900, 1200)
 					fmt.Println("cost: ", time.Now().Sub(now))
 				}
 				incr++
