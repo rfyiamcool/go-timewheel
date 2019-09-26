@@ -37,6 +37,10 @@ func NewTicker(delay time.Duration) *Ticker {
 	return DefaultTimeWheel.NewTicker(delay)
 }
 
+func AfterFunc(delay time.Duration, callback func()) *Timer {
+	return DefaultTimeWheel.AfterFunc(delay, callback)
+}
+
 func After(delay time.Duration) {
 	DefaultTimeWheel.After(delay)
 }
