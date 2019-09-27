@@ -20,7 +20,6 @@ const (
 )
 
 type taskType int64
-
 type taskID int64
 
 type Task struct {
@@ -35,11 +34,21 @@ type Task struct {
 	// circleNum int
 }
 
+type optionCall func(*TimeWheel) error
+
+func TickSafeMode() optionCall {
+	return func(o *TimeWheel) error {
+		o.tickQueue = make(chan time.Time, 10)
+		return nil
+	}
+}
+
 type TimeWheel struct {
-	randomID  int64
-	tickQueue chan time.Time
+	randomID int64
+
 	tick      time.Duration
 	ticker    *time.Ticker
+	tickQueue chan time.Time
 
 	bucketsNum    int
 	buckets       []map[taskID]*Task // key: added item, value: *Task
@@ -57,7 +66,7 @@ type TimeWheel struct {
 }
 
 // NewTimeWheel create new time wheel
-func NewTimeWheel(tick time.Duration, bucketsNum int) (*TimeWheel, error) {
+func NewTimeWheel(tick time.Duration, bucketsNum int, options ...optionCall) (*TimeWheel, error) {
 	if tick.Seconds() < 0.1 {
 		return nil, errors.New("invalid params, must tick >= 100 ms")
 	}
@@ -66,19 +75,28 @@ func NewTimeWheel(tick time.Duration, bucketsNum int) (*TimeWheel, error) {
 	}
 
 	tw := &TimeWheel{
-		tick:          tick,
-		tickQueue:     make(chan time.Time, 10),
+		// tick
+		tick:      tick,
+		tickQueue: make(chan time.Time, 10),
+
+		// store
 		bucketsNum:    bucketsNum,
 		bucketIndexes: make(map[taskID]int, 1024*10),
 		buckets:       make([]map[taskID]*Task, bucketsNum),
 		currentIndex:  0,
-		addC:          make(chan *Task, 1024*5),
-		removeC:       make(chan taskID, 1024*2),
-		stopC:         make(chan struct{}),
+
+		// signal
+		addC:    make(chan *Task, 1024*5),
+		removeC: make(chan taskID, 1024*2),
+		stopC:   make(chan struct{}),
 	}
 
 	for i := 0; i < bucketsNum; i++ {
 		tw.buckets[i] = make(map[taskID]*Task, 16)
+	}
+
+	for _, op := range options {
+		op(tw)
 	}
 
 	return tw, nil
@@ -90,13 +108,17 @@ func (tw *TimeWheel) Start() {
 	tw.onceStart.Do(
 		func() {
 			tw.ticker = time.NewTicker(tw.tick)
-			go tw.tickGenerator()
 			go tw.schduler()
+			go tw.tickGenerator()
 		},
 	)
 }
 
 func (tw *TimeWheel) tickGenerator() {
+	if tw.tickQueue != nil {
+		return
+	}
+
 	for !tw.exited {
 		select {
 		case <-tw.ticker.C:
@@ -110,9 +132,14 @@ func (tw *TimeWheel) tickGenerator() {
 }
 
 func (tw *TimeWheel) schduler() {
+	queue := tw.ticker.C
+	if tw.tickQueue == nil {
+		queue = tw.tickQueue
+	}
+
 	for {
 		select {
-		case <-tw.tickQueue:
+		case <-queue:
 			tw.handleTick()
 		case task := <-tw.addC:
 			tw.put(task)
@@ -378,6 +405,10 @@ func (t *Timer) Stop() {
 	t.task.stop = true
 	t.cancel()
 	t.tw.Remove(t.task)
+}
+
+func (t *Timer) StopFunc(callback func()) {
+	t.fn = callback
 }
 
 type Ticker struct {

@@ -72,7 +72,7 @@ timer.Stop()
 similar to time.AfterFunc
 
 ```
-runner :=tw.NewTicker(5 * time.Second, func(){})
+runner :=tw.AfterFunc(5 * time.Second, func(){})
 <- runner.C
 runner.Stop()
 ```

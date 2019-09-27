@@ -26,15 +26,6 @@ func checkTimeCost(t *testing.T, start, end time.Time, before int, after int) bo
 	return true
 }
 
-func newTimeWheel() *TimeWheel {
-	tw, err := NewTimeWheel(100*time.Millisecond, 600)
-	if err != nil {
-		panic(err)
-	}
-	tw.Start()
-	return tw
-}
-
 func TestCalcPos(t *testing.T) {
 	tw, _ := NewTimeWheel(100*time.Millisecond, 5)
 	round := tw.calculateRound(1 * time.Second)
@@ -49,7 +40,7 @@ func TestCalcPos(t *testing.T) {
 }
 
 func TestAddFunc(t *testing.T) {
-	tw, _ := NewTimeWheel(100*time.Millisecond, 5)
+	tw, _ := NewTimeWheel(100*time.Millisecond, 5, TickSafeMode())
 	tw.Start()
 	defer tw.Stop()
 
@@ -185,7 +176,10 @@ func TestTickerSecond(t *testing.T) {
 }
 
 func TestBatchTicker(t *testing.T) {
-	tw := newTimeWheel()
+	tw, _ := NewTimeWheel(100*time.Millisecond, 60)
+	tw.Start()
+	defer tw.Stop()
+
 	wg := sync.WaitGroup{}
 	for index := 0; index < 100; index++ {
 		wg.Add(1)
@@ -322,7 +316,7 @@ func TestHwTimer(t *testing.T) {
 }
 
 func BenchmarkAdd(b *testing.B) {
-	tw := newTimeWheel()
+	tw, _ := NewTimeWheel(100*time.Millisecond, 60)
 	tw.Start()
 	defer tw.Stop()
 
