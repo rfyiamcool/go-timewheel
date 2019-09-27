@@ -41,8 +41,8 @@ func AfterFunc(delay time.Duration, callback func()) *Timer {
 	return DefaultTimeWheel.AfterFunc(delay, callback)
 }
 
-func After(delay time.Duration) {
-	DefaultTimeWheel.After(delay)
+func After(delay time.Duration) <-chan time.Time {
+	return DefaultTimeWheel.After(delay)
 }
 
 func Sleep(delay time.Duration) {

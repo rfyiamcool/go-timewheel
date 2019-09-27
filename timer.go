@@ -81,7 +81,7 @@ func NewTimeWheel(tick time.Duration, bucketsNum int, options ...optionCall) (*T
 
 		// store
 		bucketsNum:    bucketsNum,
-		bucketIndexes: make(map[taskID]int, 1024*10),
+		bucketIndexes: make(map[taskID]int, 1024*100),
 		buckets:       make([]map[taskID]*Task, bucketsNum),
 		currentIndex:  0,
 
@@ -347,11 +347,11 @@ func (tw *TimeWheel) NewTicker(delay time.Duration) *Ticker {
 	return ticker
 }
 
-func (tw *TimeWheel) After(delay time.Duration) <-chan bool {
-	queue := make(chan bool, 1)
+func (tw *TimeWheel) After(delay time.Duration) <-chan time.Time {
+	queue := make(chan time.Time, 1)
 	tw.addAny(delay,
 		func() {
-			queue <- true
+			queue <- time.Now()
 		},
 		modeNotCircle, modeNotAsync,
 	)
@@ -369,7 +369,7 @@ func (tw *TimeWheel) Sleep(delay time.Duration) {
 	<-queue
 }
 
-// like golang std timer
+// similar to golang std timer
 type Timer struct {
 	task *Task
 	tw   *TimeWheel
