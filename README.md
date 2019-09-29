@@ -18,6 +18,18 @@ tw.Start()
 tw.Stop()
 ```
 
+safe ticker
+
+```
+tw, _ := NewTimeWheel(1 * time.Second, 360, TickSafeMode())
+```
+
+use sync.Pool
+
+```
+tw, _ := NewTimeWheel(1 * time.Second, 360, SetSyncPool(true))
+```
+
 add delay task
 
 ```

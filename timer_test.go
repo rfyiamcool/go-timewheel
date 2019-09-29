@@ -40,7 +40,7 @@ func TestCalcPos(t *testing.T) {
 }
 
 func TestAddFunc(t *testing.T) {
-	tw, _ := NewTimeWheel(100*time.Millisecond, 5, TickSafeMode())
+	tw, _ := NewTimeWheel(100*time.Millisecond, 5, TickSafeMode(), SetSyncPool(true))
 	tw.Start()
 	defer tw.Stop()
 
@@ -269,10 +269,14 @@ func TestRemove(t *testing.T) {
 	defer tw.Stop()
 
 	queue := make(chan bool, 0)
-	task := tw.Add(time.Millisecond*200, func() {
+	task := tw.Add(time.Millisecond*500, func() {
 		queue <- true
 	})
-	tw.Remove(task)
+
+	// remove action after add action
+	time.AfterFunc(time.Millisecond*10, func() {
+		tw.Remove(task)
+	})
 
 	exitTimer := time.NewTimer(1 * time.Second)
 	select {

@@ -34,11 +34,28 @@ type Task struct {
 	// circleNum int
 }
 
+// for sync.Pool
+func (t *Task) Reset() {
+	t.round = 0
+	t.callback = nil
+
+	t.async = false
+	t.stop = false
+	t.circle = false
+}
+
 type optionCall func(*TimeWheel) error
 
 func TickSafeMode() optionCall {
 	return func(o *TimeWheel) error {
 		o.tickQueue = make(chan time.Time, 10)
+		return nil
+	}
+}
+
+func SetSyncPool(state bool) optionCall {
+	return func(o *TimeWheel) error {
+		o.syncPool = state
 		return nil
 	}
 }
@@ -59,10 +76,11 @@ type TimeWheel struct {
 	onceStart sync.Once
 
 	addC    chan *Task
-	removeC chan taskID
+	removeC chan *Task
 	stopC   chan struct{}
 
-	exited bool
+	exited   bool
+	syncPool bool
 }
 
 // NewTimeWheel create new time wheel
@@ -87,7 +105,7 @@ func NewTimeWheel(tick time.Duration, bucketsNum int, options ...optionCall) (*T
 
 		// signal
 		addC:    make(chan *Task, 1024*5),
-		removeC: make(chan taskID, 1024*2),
+		removeC: make(chan *Task, 1024*2),
 		stopC:   make(chan struct{}),
 	}
 
@@ -159,8 +177,12 @@ func (tw *TimeWheel) Stop() {
 }
 
 func (tw *TimeWheel) collectTask(task *Task) {
-	delete(tw.buckets[tw.currentIndex], task.id)
 	delete(tw.bucketIndexes, task.id)
+	delete(tw.buckets[tw.currentIndex], task.id)
+
+	if tw.syncPool {
+		defaultTaskPool.put(task)
+	}
 }
 
 func (tw *TimeWheel) handleTick() {
@@ -217,13 +239,20 @@ func (tw *TimeWheel) addAny(delay time.Duration, callback func(), circle, async 
 	}
 
 	id := tw.genUniqueID()
-	task := &Task{
-		delay:    delay,
-		id:       id,
-		callback: callback,
-		circle:   circle,
-		async:    async, // refer to src/runtime/time.go
+
+	var task *Task
+	if tw.syncPool {
+		task = defaultTaskPool.get()
+	} else {
+		task = new(Task)
 	}
+
+	task.delay = delay
+	task.id = id
+	task.callback = callback
+	task.circle = circle
+	task.async = async // refer to src/runtime/time.go
+
 	tw.addC <- task
 	return task
 }
@@ -265,16 +294,12 @@ func (tw *TimeWheel) calculateIndex(delay time.Duration) (index int) {
 }
 
 func (tw *TimeWheel) Remove(task *Task) error {
-	tw.removeC <- task.id
+	tw.removeC <- task
 	return nil
 }
 
-func (tw *TimeWheel) remove(id taskID) {
-	if index, ok := tw.bucketIndexes[id]; ok {
-		delete(tw.bucketIndexes, id)
-		delete(tw.buckets[index], id)
-	}
-	return
+func (tw *TimeWheel) remove(task *Task) {
+	tw.collectTask(task)
 }
 
 func (tw *TimeWheel) NewTimer(delay time.Duration) *Timer {
