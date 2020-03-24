@@ -60,23 +60,33 @@ func TestAddFunc(t *testing.T) {
 	}
 }
 
-func TestAddCron(t *testing.T) {
+func TestAddStopCron(t *testing.T) {
 	tw, _ := NewTimeWheel(100*time.Millisecond, 60)
 	tw.Start()
 	defer tw.Stop()
 
 	queue := make(chan time.Time, 2)
-	tw.AddCron(time.Second*1, func() {
+	task := tw.AddCron(time.Second*1, func() {
 		queue <- time.Now()
+	})
+
+	time.AfterFunc(5*time.Second, func() {
+		tw.Remove(task)
 	})
 
 	exitTimer := time.NewTimer(10 * time.Second)
 	lastTs := time.Now()
+	c := 0
 	for {
 		select {
 		case <-exitTimer.C:
+			if c > 6 {
+				t.Error("cron stop failed")
+			}
 			return
+
 		case now := <-queue:
+			c++
 			checkTimeCost(t, lastTs, now, 900, 1200)
 			fmt.Println("time since: ", now.Sub(lastTs))
 			lastTs = now
@@ -91,8 +101,7 @@ func TestStopTimer(t *testing.T) {
 
 	timer := tw.NewTimer(time.Millisecond * 500)
 
-	exitTimer := time.NewTimer(1 * time.Second)
-	time.Sleep(100 * time.Millisecond)
+	exitTimer := time.NewTimer(2 * time.Second)
 	timer.Stop()
 
 	select {
@@ -126,20 +135,26 @@ func TestTicker(t *testing.T) {
 	defer tw.Stop()
 
 	ticker := tw.NewTicker(time.Second * 1)
-	go func() {
-		time.Sleep(10 * time.Second)
-		ticker.Stop()
-	}()
 
+	time.AfterFunc(5*time.Second, func() {
+		ticker.Stop()
+	})
+
+	exitTimer := time.After(10 * time.Second)
 	last := time.Now()
+	c := 0
 	for {
 		select {
 		case <-ticker.C:
 			checkTimeCost(t, last, time.Now(), 900, 1200)
-			last = time.Now()
 			fmt.Println(time.Since(last))
+			last = time.Now()
+			c++
 
-		case <-ticker.Ctx.Done():
+		case <-exitTimer:
+			if c > 6 {
+				t.Error("ticker stop failed")
+			}
 			return
 		}
 	}
