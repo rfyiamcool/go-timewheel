@@ -408,6 +408,10 @@ type Timer struct {
 }
 
 func (t *Timer) Reset(delay time.Duration) {
+	// first stop old task
+	t.task.stop = true
+
+	// make new task
 	var task *Task
 	if t.fn != nil { // use AfterFunc
 		task = t.tw.addAny(delay,

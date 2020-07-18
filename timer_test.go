@@ -5,6 +5,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func callback() {
@@ -252,6 +254,39 @@ func TestAfterFunc(t *testing.T) {
 		checkTimeCost(t, ts, time.Now(), before, after)
 		fmt.Println(time.Since(ts).String())
 	}
+}
+
+func TestAfterFuncResetStop(t *testing.T) {
+	tw, _ := NewTimeWheel(100*time.Millisecond, 10)
+	tw.Start()
+	defer tw.Stop()
+
+	var incr = 0
+
+	// stop
+	timer := tw.AfterFunc(100*time.Millisecond, func() {
+		incr++
+	})
+	timer.Stop()
+	time.Sleep(1 * time.Second)
+	assert.Equal(t, incr, 0)
+
+	// reset
+	timer = tw.AfterFunc(100*time.Millisecond, func() {
+		incr++
+	})
+	timer.Reset(100 * time.Millisecond)
+	time.Sleep(1 * time.Second)
+	assert.Equal(t, incr, 1)
+
+	// reset stop
+	timer = tw.AfterFunc(100*time.Millisecond, func() {
+		incr++
+	})
+	timer.Reset(100 * time.Millisecond)
+	timer.Stop()
+	time.Sleep(1 * time.Second)
+	assert.Equal(t, incr, 1)
 }
 
 func TestTimerReset(t *testing.T) {
