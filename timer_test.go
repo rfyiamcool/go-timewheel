@@ -378,3 +378,21 @@ func BenchmarkAdd(b *testing.B) {
 		tw.Add(time.Second, func() {})
 	}
 }
+
+func TestRunStopFunc(t *testing.T) {
+	var (
+		t1     = NewTimer(time.Second * 1)
+		called bool
+	)
+
+	t1.StopFunc(func() {
+		called = true
+	})
+
+	select {
+	case <-t1.C:
+		t1.Stop()
+	}
+
+	assert.Equal(t, called, true)
+}

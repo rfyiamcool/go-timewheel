@@ -433,6 +433,10 @@ func (t *Timer) Reset(delay time.Duration) {
 }
 
 func (t *Timer) Stop() {
+	if t.fn != nil {
+		t.fn()
+	}
+
 	t.task.stop = true
 	t.cancel()
 	t.tw.Remove(t.task)
