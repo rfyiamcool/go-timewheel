@@ -1,6 +1,6 @@
 # go-timewheel
 
-golang timewheeo lib, similar to goalng std timer
+golang timewheel lib, similar to golang std timer
 
 ## Usage
 
