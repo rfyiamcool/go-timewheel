@@ -268,10 +268,12 @@ func TestAfterFuncResetStop(t *testing.T) {
 		incr++
 	})
 	timer.Stop()
-	time.Sleep(1 * time.Second)
-	assert.Equal(t, incr, 0)
+
+	time.Sleep(500 * time.Millisecond)
+	assert.Equal(t, 0, incr)
 
 	// reset
+	incr = 0
 	timer = tw.AfterFunc(100*time.Millisecond, func() {
 		incr++
 	})
@@ -280,13 +282,14 @@ func TestAfterFuncResetStop(t *testing.T) {
 	assert.Equal(t, incr, 1)
 
 	// reset stop
+	incr = 0
 	timer = tw.AfterFunc(100*time.Millisecond, func() {
 		incr++
 	})
 	timer.Reset(100 * time.Millisecond)
 	timer.Stop()
 	time.Sleep(1 * time.Second)
-	assert.Equal(t, incr, 1)
+	assert.Equal(t, 0, incr)
 }
 
 func TestTimerReset(t *testing.T) {
@@ -385,7 +388,7 @@ func TestRunStopFunc(t *testing.T) {
 		called bool
 	)
 
-	t1.StopFunc(func() {
+	t1.AddStopFunc(func() {
 		called = true
 	})
 
