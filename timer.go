@@ -398,10 +398,12 @@ func (tw *TimeWheel) Sleep(delay time.Duration) {
 
 // similar to golang std timer
 type Timer struct {
-	task *Task
-	tw   *TimeWheel
-	fn   func() // external custom func
-	C    chan bool
+	task   *Task
+	tw     *TimeWheel
+	fn     func() // external custom func
+	stopFn func() // call function when timer stop
+
+	C chan bool
 
 	cancel context.CancelFunc
 	Ctx    context.Context
@@ -433,8 +435,8 @@ func (t *Timer) Reset(delay time.Duration) {
 }
 
 func (t *Timer) Stop() {
-	if t.fn != nil {
-		t.fn()
+	if t.stopFn != nil {
+		t.stopFn()
 	}
 
 	t.task.stop = true
@@ -442,8 +444,8 @@ func (t *Timer) Stop() {
 	t.tw.Remove(t.task)
 }
 
-func (t *Timer) StopFunc(callback func()) {
-	t.fn = callback
+func (t *Timer) AddStopFunc(callback func()) {
+	t.stopFn = callback
 }
 
 type Ticker struct {
