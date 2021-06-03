@@ -457,6 +457,21 @@ type Ticker struct {
 	Ctx context.Context
 }
 
+func (t *Ticker) Reset(delay time.Duration) {
+	// first stop old task
+	t.task.stop = true
+
+	// make new task
+	t.task = t.tw.addAny(
+		delay,
+		func() {
+			notfiyChannel(t.C)
+		},
+		modeIsCircle,
+		modeNotAsync,
+	)
+}
+
 func (t *Ticker) Stop() {
 	t.task.stop = true
 	t.cancel()
