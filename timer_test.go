@@ -16,12 +16,12 @@ func callback() {
 func checkTimeCost(t *testing.T, start, end time.Time, before int, after int) bool {
 	due := end.Sub(start)
 	if due > time.Duration(after)*time.Millisecond {
-		t.Error("delay run")
+		t.Error("delay run", due)
 		return false
 	}
 
 	if due < time.Duration(before)*time.Millisecond {
-		t.Error("run ahead")
+		t.Error("run ahead", due)
 		return false
 	}
 
@@ -42,7 +42,7 @@ func TestCalcPos(t *testing.T) {
 }
 
 func TestAddFunc(t *testing.T) {
-	tw, _ := NewTimeWheel(100*time.Millisecond, 5, TickSafeMode(), SetSyncPool(true))
+	tw, _ := NewTimeWheel(100*time.Millisecond, 5, SetSyncPool(true))
 	tw.Start()
 	defer tw.Stop()
 
@@ -178,7 +178,7 @@ func TestTickerSecond(t *testing.T) {
 	for {
 		select {
 		case <-ticker.C:
-			if time.Since(last) > time.Duration(2200*time.Millisecond) {
+			if time.Since(last) > 2200*time.Millisecond {
 				fmt.Println("delay run", time.Since(last))
 				t.Fatal()
 			}
@@ -417,6 +417,7 @@ func TestRunStopFunc(t *testing.T) {
 		t1     = NewTimer(time.Second * 1)
 		called bool
 	)
+	Start()
 
 	t1.AddStopFunc(func() {
 		called = true

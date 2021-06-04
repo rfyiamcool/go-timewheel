@@ -2,16 +2,12 @@ package timewheel
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
 const (
-	typeTimer taskType = iota
-	typeTicker
-
 	modeIsCircle  = true
 	modeNotCircle = false
 
@@ -19,7 +15,6 @@ const (
 	modeNotAsync = false
 )
 
-type taskType int64
 type taskID int64
 
 type Task struct {
@@ -44,19 +39,11 @@ func (t *Task) Reset() {
 	t.circle = false
 }
 
-type optionCall func(*TimeWheel) error
-
-func TickSafeMode() optionCall {
-	return func(o *TimeWheel) error {
-		o.tickQueue = make(chan time.Time, 10)
-		return nil
-	}
-}
+type optionCall func(*TimeWheel)
 
 func SetSyncPool(state bool) optionCall {
-	return func(o *TimeWheel) error {
+	return func(o *TimeWheel) {
 		o.syncPool = state
-		return nil
 	}
 }
 
@@ -85,11 +72,11 @@ type TimeWheel struct {
 
 // NewTimeWheel create new time wheel
 func NewTimeWheel(tick time.Duration, bucketsNum int, options ...optionCall) (*TimeWheel, error) {
-	if tick.Seconds() < 0.1 {
-		return nil, errors.New("invalid params, must tick >= 100 ms")
+	if tick.Milliseconds() < 1 {
+		tick = time.Millisecond
 	}
 	if bucketsNum <= 0 {
-		return nil, errors.New("invalid params, must bucketsNum > 0")
+		bucketsNum = 1
 	}
 
 	tw := &TimeWheel{
@@ -441,7 +428,7 @@ func (t *Timer) Stop() {
 
 	t.task.stop = true
 	t.cancel()
-	t.tw.Remove(t.task)
+	_ = t.tw.Remove(t.task)
 }
 
 func (t *Timer) AddStopFunc(callback func()) {
@@ -475,7 +462,7 @@ func (t *Ticker) Reset(delay time.Duration) {
 func (t *Ticker) Stop() {
 	t.task.stop = true
 	t.cancel()
-	t.tw.Remove(t.task)
+	_ = t.tw.Remove(t.task)
 }
 
 func notfiyChannel(q chan bool) {

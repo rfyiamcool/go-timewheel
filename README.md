@@ -1,5 +1,9 @@
 # go-timewheel
 
+*forked from rfyiamcool/go-timewheel v1.0.1*
+
+[example](example)
+
 golang timewheel lib, similar to golang std timer
 
 ## Usage
@@ -67,7 +71,7 @@ similar to time.After()
 similar to time.NewTimer
 
 ```
-timer :=tw.NewTimer(5 * time.Second)
+timer := tw.NewTimer(5 * time.Second)
 <- timer.C
 timer.Reset(1 * time.Second)
 timer.Stop()
@@ -85,11 +89,7 @@ ticker.Stop()
 similar to time.AfterFunc
 
 ```
-runner :=tw.AfterFunc(5 * time.Second, func(){})
+runner := tw.AfterFunc(5 * time.Second, func(){})
 <- runner.C
 runner.Stop()
 ```
-
-## benchmark test
-
-[example/main.go](example/main.go)

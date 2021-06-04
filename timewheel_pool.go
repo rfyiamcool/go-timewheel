@@ -6,14 +6,14 @@ import (
 	"time"
 )
 
-type TimeWheelPool struct {
+type Pool struct {
 	pool []*TimeWheel
 	size int64
 	incr int64 // not need for high accuracy
 }
 
-func NewTimeWheelPool(size int, tick time.Duration, bucketsNum int, options ...optionCall) (*TimeWheelPool, error) {
-	twp := &TimeWheelPool{
+func NewTimeWheelPool(size int, tick time.Duration, bucketsNum int, options ...optionCall) (*Pool, error) {
+	twp := &Pool{
 		pool: make([]*TimeWheel, size),
 		size: int64(size),
 	}
@@ -30,25 +30,25 @@ func NewTimeWheelPool(size int, tick time.Duration, bucketsNum int, options ...o
 	return twp, nil
 }
 
-func (tp *TimeWheelPool) Get() *TimeWheel {
+func (tp *Pool) Get() *TimeWheel {
 	incr := atomic.AddInt64(&tp.incr, 1)
 	idx := incr % tp.size
 	return tp.pool[idx]
 }
 
-func (tp *TimeWheelPool) GetRandom() *TimeWheel {
+func (tp *Pool) GetRandom() *TimeWheel {
 	rand.Seed(time.Now().UnixNano())
 	idx := rand.Int63n(tp.size)
 	return tp.pool[idx]
 }
 
-func (tp *TimeWheelPool) Start() {
+func (tp *Pool) Start() {
 	for _, tw := range tp.pool {
 		tw.Start()
 	}
 }
 
-func (tp *TimeWheelPool) Stop() {
+func (tp *Pool) Stop() {
 	for _, tw := range tp.pool {
 		tw.Stop()
 	}

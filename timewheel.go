@@ -5,46 +5,50 @@ import (
 )
 
 var (
-	DefaultTimeWheel, _ = NewTimeWheel(time.Second, 120)
+	defaultTimeWheel, _ = NewTimeWheel(time.Second, 120)
 )
 
-func init() {
-	DefaultTimeWheel.Start()
+func Start() {
+	defaultTimeWheel.Start()
+}
+
+func Stop() {
+	defaultTimeWheel.Stop()
 }
 
 func ResetDefaultTimeWheel(tw *TimeWheel) {
 	tw.Start()
-	DefaultTimeWheel = tw
+	defaultTimeWheel = tw
 }
 
 func Add(delay time.Duration, callback func()) *Task {
-	return DefaultTimeWheel.Add(delay, callback)
+	return defaultTimeWheel.Add(delay, callback)
 }
 
 func AddCron(delay time.Duration, callback func()) *Task {
-	return DefaultTimeWheel.AddCron(delay, callback)
+	return defaultTimeWheel.AddCron(delay, callback)
 }
 
 func Remove(task *Task) error {
-	return DefaultTimeWheel.Remove(task)
+	return defaultTimeWheel.Remove(task)
 }
 
 func NewTimer(delay time.Duration) *Timer {
-	return DefaultTimeWheel.NewTimer(delay)
+	return defaultTimeWheel.NewTimer(delay)
 }
 
 func NewTicker(delay time.Duration) *Ticker {
-	return DefaultTimeWheel.NewTicker(delay)
+	return defaultTimeWheel.NewTicker(delay)
 }
 
 func AfterFunc(delay time.Duration, callback func()) *Timer {
-	return DefaultTimeWheel.AfterFunc(delay, callback)
+	return defaultTimeWheel.AfterFunc(delay, callback)
 }
 
 func After(delay time.Duration) <-chan time.Time {
-	return DefaultTimeWheel.After(delay)
+	return defaultTimeWheel.After(delay)
 }
 
 func Sleep(delay time.Duration) {
-	DefaultTimeWheel.Sleep(delay)
+	defaultTimeWheel.Sleep(delay)
 }
