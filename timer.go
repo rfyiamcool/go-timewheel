@@ -29,7 +29,7 @@ type Task struct {
 	// circleNum int
 }
 
-// for sync.Pool
+// Reset for sync.Pool
 func (t *Task) Reset() {
 	t.round = 0
 	t.callback = nil
@@ -75,7 +75,7 @@ func NewTimeWheel(tick time.Duration, bucketsNum int, options ...optionCall) (*T
 	if tick.Milliseconds() < 1 {
 		tick = time.Millisecond
 	}
-	if bucketsNum <= 0 {
+	if bucketsNum < 1 {
 		bucketsNum = 1
 	}
 
@@ -223,7 +223,7 @@ func (tw *TimeWheel) AddCron(delay time.Duration, callback func()) *Task {
 }
 
 func (tw *TimeWheel) addAny(delay time.Duration, callback func(), circle, async bool) *Task {
-	if delay <= 0 {
+	if delay < tw.tick {
 		delay = tw.tick
 	}
 
@@ -383,7 +383,7 @@ func (tw *TimeWheel) Sleep(delay time.Duration) {
 	<-queue
 }
 
-// similar to golang std timer
+// Timer similar to golang std timer
 type Timer struct {
 	task   *Task
 	tw     *TimeWheel
