@@ -22,7 +22,7 @@ func main() {
 	for index := 0; index < 3; index++ {
 		start := time.Now()
 		for index := 0; index < count; index++ {
-			tw.Add(time.Duration(1*time.Second), func() {
+			tw.Add(1*time.Second, func() {
 				queue <- true
 			})
 		}

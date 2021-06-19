@@ -4,8 +4,6 @@ import (
 	"sync"
 )
 
-var incr = 0
-
 var (
 	defaultTaskPool = newTaskPool()
 )
