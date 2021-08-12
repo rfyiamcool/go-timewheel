@@ -1,6 +1,15 @@
-# go-timewheel
+# 完全兼容 golang 定时器的高性能时间轮
 
 *forked from rfyiamcool/go-timewheel v1.0.1*
+
+变动:
+
+- 添加了 `ticker.Reset()`
+- 增加 `defaultTimeWheel` 开始和停止方法, 改为手动开始, 见: `example/demo.go`
+- 修正设置时间小于 `tw.tick` 时, `Ticker` 只运行一次的问题
+- 代码整理, 增加示例, 消除依赖
+
+# go-timewheel
 
 [example](example)
 

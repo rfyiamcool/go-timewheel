@@ -5,8 +5,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func callback() {
@@ -73,7 +71,7 @@ func TestAddStopCron(t *testing.T) {
 	})
 
 	time.AfterFunc(5*time.Second, func() {
-		tw.Remove(task)
+		_ = tw.Remove(task)
 	})
 
 	exitTimer := time.NewTimer(10 * time.Second)
@@ -270,7 +268,9 @@ func TestAfterFuncResetStop(t *testing.T) {
 	timer.Stop()
 
 	time.Sleep(500 * time.Millisecond)
-	assert.Equal(t, 0, incr)
+	if incr != 0 {
+		t.Errorf("incr != 0, is %d", incr)
+	}
 
 	// reset
 	incr = 0
@@ -279,7 +279,9 @@ func TestAfterFuncResetStop(t *testing.T) {
 	})
 	timer.Reset(100 * time.Millisecond)
 	time.Sleep(300 * time.Millisecond)
-	assert.Equal(t, incr, 1)
+	if incr != 1 {
+		t.Errorf("incr != 1, is %d", incr)
+	}
 
 	// reset stop
 	incr = 0
@@ -290,9 +292,13 @@ func TestAfterFuncResetStop(t *testing.T) {
 	timer.Reset(100 * time.Millisecond)
 	timer.Reset(1000 * time.Millisecond)
 	time.Sleep(500 * time.Millisecond)
-	assert.Equal(t, 0, incr)
+	if incr != 0 {
+		t.Errorf("incr != 0, is %d", incr)
+	}
 	time.Sleep(700 * time.Millisecond)
-	assert.Equal(t, 1, incr)
+	if incr != 1 {
+		t.Errorf("incr != 1, is %d", incr)
+	}
 }
 
 func TestTimerReset(t *testing.T) {
@@ -358,7 +364,7 @@ func TestRemove(t *testing.T) {
 
 	// remove action after add action
 	time.AfterFunc(time.Millisecond*10, func() {
-		tw.Remove(task)
+		_ = tw.Remove(task)
 	})
 
 	exitTimer := time.NewTimer(1 * time.Second)
@@ -402,22 +408,13 @@ func TestHwTimer(t *testing.T) {
 	wg.Wait()
 }
 
-func BenchmarkAdd(b *testing.B) {
-	tw, _ := NewTimeWheel(100*time.Millisecond, 60)
-	tw.Start()
-	defer tw.Stop()
-
-	for i := 0; i < b.N; i++ {
-		tw.Add(time.Second, func() {})
-	}
-}
-
 func TestRunStopFunc(t *testing.T) {
 	var (
 		t1     = NewTimer(time.Second * 1)
 		called bool
 	)
 	Start()
+	defer Stop()
 
 	t1.AddStopFunc(func() {
 		called = true
@@ -427,6 +424,17 @@ func TestRunStopFunc(t *testing.T) {
 	case <-t1.C:
 		t1.Stop()
 	}
+	if !called {
+		t.Error("called is false")
+	}
+}
 
-	assert.Equal(t, called, true)
+func BenchmarkAdd(b *testing.B) {
+	tw, _ := NewTimeWheel(100*time.Millisecond, 60)
+	tw.Start()
+	defer tw.Stop()
+
+	for i := 0; i < b.N; i++ {
+		tw.Add(time.Second, func() {})
+	}
 }
