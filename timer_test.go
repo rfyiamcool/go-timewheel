@@ -402,3 +402,55 @@ func TestRunStopFunc(t *testing.T) {
 
 	assert.Equal(t, called, true)
 }
+
+type Case struct {
+	name string
+	N    int // the data size (i.e. number of existing timers)
+}
+
+func getTestCases() []Case {
+	cases := []Case{
+		{"wheel-N-1m", 1000000},
+		{"wheel-N-5m", 5000000},
+		{"wheel-N-10m", 10000000},
+	}
+
+	return cases
+}
+
+func BenchmarkTimeWheel(b *testing.B) {
+	tw, err := NewTimeWheel(1*time.Second, 1000, SetSyncPool(true))
+	if err != nil {
+		b.Error("NewTimeWheel", err.Error())
+		return
+	}
+
+	tw.Start()
+	defer tw.Stop()
+
+	cases := getTestCases()
+	for _, c := range cases {
+		b.Run(c.name, func(b *testing.B) {
+			base := make([]*Timer, c.N)
+			for i := 0; i < len(base); i++ {
+				base[i] = tw.AfterFunc(time.Duration(i)*time.Millisecond, func() {
+					time.Sleep(1)
+				})
+			}
+
+			b.ResetTimer()
+
+			for i := 0; i < b.N; i++ {
+				tw.AfterFunc(time.Second, func() {
+					time.Sleep(1)
+				}).Stop()
+			}
+
+			b.StopTimer()
+
+			for i := 0; i < len(base); i++ {
+				base[i].Stop()
+			}
+		})
+	}
+}

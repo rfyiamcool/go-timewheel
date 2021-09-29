@@ -25,10 +25,11 @@ func newTaskPool() *taskPool {
 }
 
 func (pool *taskPool) get() *Task {
-	return pool.bp.Get().(*Task)
+	task := pool.bp.Get().(*Task)
+	task.Reset()
+	return task
 }
 
 func (pool *taskPool) put(obj *Task) {
-	obj.Reset()
 	pool.bp.Put(obj)
 }
