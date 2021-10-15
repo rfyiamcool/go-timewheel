@@ -3,6 +3,7 @@ package timewheel
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -42,7 +43,7 @@ func TestCalcPos(t *testing.T) {
 }
 
 func TestAddFunc(t *testing.T) {
-	tw, _ := NewTimeWheel(100*time.Millisecond, 5, TickSafeMode(), SetSyncPool(true))
+	tw, _ := NewTimeWheel(100*time.Millisecond, 5, TickSafeMode())
 	tw.Start()
 	defer tw.Stop()
 
@@ -113,87 +114,105 @@ func TestStopTimer(t *testing.T) {
 	}
 }
 
-func TestStopTicker(t *testing.T) {
-	tw, _ := NewTimeWheel(100*time.Millisecond, 5)
+func TestStopTicker1(t *testing.T) {
+	tw, _ := NewTimeWheel(100*time.Millisecond, 100)
 	tw.Start()
 	defer tw.Stop()
 
 	timer := tw.NewTicker(time.Millisecond * 500)
-
-	exitTimer := time.NewTimer(1 * time.Second)
-	time.Sleep(100 * time.Millisecond)
 	timer.Stop()
 
+	time.Sleep(1 * time.Second)
+
 	select {
-	case <-exitTimer.C:
 	case <-timer.C:
-		t.Error("must not run")
+		t.Error("exception")
+	default:
+	}
+
+	select {
+	case <-timer.Ctx.Done():
+		return
+	case <-time.After(1 * time.Second):
+		t.Error("exception")
 	}
 }
 
-func TestTicker(t *testing.T) {
-	tw, _ := NewTimeWheel(100*time.Millisecond, 5)
+func TestStopTicker2(t *testing.T) {
+	tw, _ := NewTimeWheel(100*time.Millisecond, 100)
 	tw.Start()
 	defer tw.Stop()
 
-	ticker := tw.NewTicker(time.Second * 1)
+	var tickers [1000]*Ticker
+	for idx := range tickers {
+		ticker := tw.NewTicker(time.Millisecond * 500)
+		tickers[idx] = ticker
+	}
+
+	for _, ticker := range tickers {
+		ticker.Stop()
+	}
+
+	time.Sleep(1 * time.Second)
+	assert.Equal(t, 0, len(tw.bucketIndexes))
+}
+
+func TestTickerBetween(t *testing.T) {
+	tw, _ := NewTimeWheel(100*time.Millisecond, 1000)
+	tw.Start()
+	defer tw.Stop()
+
+	ticker := tw.NewTicker(100 * time.Millisecond)
 
 	time.AfterFunc(5*time.Second, func() {
 		ticker.Stop()
 	})
 
-	exitTimer := time.After(10 * time.Second)
+	exitTimer := time.After(3 * time.Second)
 	last := time.Now()
-	c := 0
-	for {
+	for c := 0; c < 6; {
 		select {
 		case <-ticker.C:
-			checkTimeCost(t, last, time.Now(), 900, 1200)
-			fmt.Println(time.Since(last))
+			t.Log("since", time.Since(last))
 			last = time.Now()
 			c++
 
 		case <-exitTimer:
-			if c > 6 {
-				t.Error("ticker stop failed")
-			}
 			return
 		}
 	}
 }
 
 func TestTickerSecond(t *testing.T) {
-	tw, _ := NewTimeWheel(time.Second, 5)
+	tw, err := NewTimeWheel(1*time.Millisecond, 10000)
+	assert.Nil(t, err)
+
 	tw.Start()
 	defer tw.Stop()
 
-	ticker := tw.NewTicker(time.Second * 1)
-	go func() {
-		time.Sleep(12 * time.Second)
-		ticker.Stop()
-		fmt.Println("call stop")
-	}()
+	var (
+		timeout = time.After(110 * time.Millisecond)
+		ticker  = tw.NewTicker(1 * time.Millisecond)
+		incr    int
+	)
 
-	last := time.Now()
-	for {
+	for run := true; run; {
 		select {
+		case <-timeout:
+			run = false
+
 		case <-ticker.C:
-			if time.Since(last) > time.Duration(2200*time.Millisecond) {
-				fmt.Println("delay run", time.Since(last))
-				t.Fatal()
-			}
-
-			fmt.Println(time.Since(last))
-			last = time.Now()
-
-		case <-ticker.Ctx.Done():
-			return
+			incr++
 		}
 	}
+
+	assert.Greater(t, incr, 100)
 }
 
 func TestBatchTicker(t *testing.T) {
-	tw, _ := NewTimeWheel(100*time.Millisecond, 60)
+	tw, err := NewTimeWheel(100*time.Millisecond, 60)
+	assert.Nil(t, err)
+
 	tw.Start()
 	defer tw.Stop()
 
@@ -202,11 +221,12 @@ func TestBatchTicker(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ticker := tw.NewTicker(time.Second * 1)
+			ticker := tw.NewTicker(1 * time.Second)
 			go func() {
-				time.Sleep(5 * time.Second)
+				time.Sleep(2 * time.Second)
 				ticker.Stop()
 			}()
+
 			for {
 				select {
 				case <-ticker.C:
@@ -230,7 +250,6 @@ func TestAfter(t *testing.T) {
 		before := index*1000 - 200
 		after := index*1000 + 200
 		checkTimeCost(t, ts, time.Now(), before, after)
-		fmt.Println(time.Since(ts).String())
 	}
 }
 
@@ -315,7 +334,6 @@ func TestTimerReset(t *testing.T) {
 		after := index*1000 + 200
 
 		checkTimeCost(t, now, time.Now(), before, after)
-		fmt.Println(time.Since(now).String())
 	}
 }
 
@@ -366,7 +384,6 @@ func TestHwTimer(t *testing.T) {
 					htimer.Reset(1 * time.Second)
 					end := time.Now()
 					checkTimeCost(t, now, end, 900, 1200)
-					fmt.Println("cost: ", time.Now().Sub(now))
 				}
 				incr++
 			}
@@ -401,4 +418,97 @@ func TestRunStopFunc(t *testing.T) {
 	}
 
 	assert.Equal(t, called, true)
+}
+
+func TestResetStopWithSec(t *testing.T) {
+	tw, err := NewTimeWheel(1*time.Second, 1000)
+	assert.Nil(t, err)
+
+	tw.Start()
+	defer tw.Stop()
+
+	var (
+		timers = make([]*Timer, 1000)
+		incr   int64
+	)
+
+	for i := 0; i < len(timers); i++ {
+		timers[i] = tw.AfterFunc(time.Duration(i)*time.Millisecond, func() {
+			atomic.AddInt64(&incr, 1)
+		})
+	}
+
+	for i := 0; i < len(timers); i++ {
+		timers[i].Stop()
+	}
+
+	time.Sleep(3 * time.Second)
+	assert.Equal(t, 0, len(tw.bucketIndexes))
+	assert.EqualValues(t, 0, incr)
+
+	for i := 0; i < len(timers); i++ {
+		i := i
+		go func() {
+			tw.AfterFunc(time.Duration(i)*time.Millisecond, func() {
+				atomic.AddInt64(&incr, 1)
+			})
+		}()
+	}
+
+	time.Sleep(3 * time.Second)
+	assert.EqualValues(t, 1000, incr)
+}
+
+func TestResetStop2WithMill(t *testing.T) {
+	tw, err := NewTimeWheel(100*time.Millisecond, 1000)
+	assert.Nil(t, err)
+
+	tw.Start()
+	defer tw.Stop()
+
+	var (
+		count = 1000
+		incr  int64
+	)
+
+	for i := 0; i < count; i++ {
+		i := i
+		go func() {
+			tw.AfterFunc(time.Duration(i)*time.Millisecond, func() {
+				atomic.AddInt64(&incr, 1)
+			})
+		}()
+	}
+
+	time.Sleep(2 * time.Second)
+	assert.EqualValues(t, count, incr)
+}
+
+func TestAddRemove(t *testing.T) {
+	tw, err := NewTimeWheel(100*time.Millisecond, 10000, TickSafeMode())
+	assert.Equal(t, nil, err)
+
+	tw.Start()
+	defer tw.Stop()
+
+	var incr int64
+	for i := 0; i < 1000; i++ {
+		task := tw.Add(1*time.Second, func() {
+			atomic.AddInt64(&incr, 1)
+		})
+
+		tw.Remove(task)
+	}
+
+	time.Sleep(2 * time.Second)
+	assert.EqualValues(t, 0, incr)
+
+	for i := 0; i < 1000; i++ {
+		tw.Add(1*time.Second, func() {
+			atomic.AddInt64(&incr, 1)
+		})
+	}
+
+	time.Sleep(2 * time.Second)
+	assert.EqualValues(t, 1000, incr)
 }

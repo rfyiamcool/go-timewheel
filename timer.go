@@ -36,6 +36,8 @@ type Task struct {
 
 // for sync.Pool
 func (t *Task) Reset() {
+	t.delay = 0
+	t.id = 0
 	t.round = 0
 	t.callback = nil
 
@@ -53,12 +55,13 @@ func TickSafeMode() optionCall {
 	}
 }
 
-func SetSyncPool(state bool) optionCall {
-	return func(o *TimeWheel) error {
-		o.syncPool = state
-		return nil
-	}
-}
+// todo:
+// func SetSyncPool(state bool) optionCall {
+// 	return func(o *TimeWheel) error {
+// 		o.syncPool = state
+// 		return nil
+// 	}
+// }
 
 type TimeWheel struct {
 	randomID int64
@@ -75,18 +78,17 @@ type TimeWheel struct {
 
 	onceStart sync.Once
 
-	addC    chan *Task
-	removeC chan *Task
-	stopC   chan struct{}
+	stopC chan struct{}
 
-	exited   bool
-	syncPool bool
+	exited bool
+
+	sync.RWMutex
 }
 
 // NewTimeWheel create new time wheel
 func NewTimeWheel(tick time.Duration, bucketsNum int, options ...optionCall) (*TimeWheel, error) {
-	if tick.Seconds() < 0.1 {
-		return nil, errors.New("invalid params, must tick >= 100 ms")
+	if tick.Milliseconds() < 1 {
+		return nil, errors.New("invalid params, must tick >= 1 ms")
 	}
 	if bucketsNum <= 0 {
 		return nil, errors.New("invalid params, must bucketsNum > 0")
@@ -104,9 +106,7 @@ func NewTimeWheel(tick time.Duration, bucketsNum int, options ...optionCall) (*T
 		currentIndex:  0,
 
 		// signal
-		addC:    make(chan *Task, 1024*5),
-		removeC: make(chan *Task, 1024*2),
-		stopC:   make(chan struct{}),
+		stopC: make(chan struct{}),
 	}
 
 	for i := 0; i < bucketsNum; i++ {
@@ -159,10 +159,7 @@ func (tw *TimeWheel) schduler() {
 		select {
 		case <-queue:
 			tw.handleTick()
-		case task := <-tw.addC:
-			tw.put(task)
-		case key := <-tw.removeC:
-			tw.remove(key)
+
 		case <-tw.stopC:
 			tw.exited = true
 			tw.ticker.Stop()
@@ -181,12 +178,16 @@ func (tw *TimeWheel) collectTask(task *Task) {
 	delete(tw.bucketIndexes, task.id)
 	delete(tw.buckets[index], task.id)
 
-	if tw.syncPool {
-		defaultTaskPool.put(task)
-	}
+	// todo:
+	// if tw.syncPool {
+	// 	defaultTaskPool.put(task)
+	// }
 }
 
 func (tw *TimeWheel) handleTick() {
+	tw.Lock()
+	defer tw.Unlock()
+
 	bucket := tw.buckets[tw.currentIndex]
 	for k, task := range bucket {
 		if task.stop {
@@ -241,13 +242,13 @@ func (tw *TimeWheel) addAny(delay time.Duration, callback func(), circle, async 
 	}
 
 	id := tw.genUniqueID()
+	task := new(Task)
 
-	var task *Task
-	if tw.syncPool {
-		task = defaultTaskPool.get()
-	} else {
-		task = new(Task)
-	}
+	// todo:
+	// var task *Task
+	// if tw.syncPool {
+	// 	task = defaultTaskPool.get()
+	// }
 
 	task.delay = delay
 	task.id = id
@@ -255,11 +256,14 @@ func (tw *TimeWheel) addAny(delay time.Duration, callback func(), circle, async 
 	task.circle = circle
 	task.async = async // refer to src/runtime/time.go
 
-	tw.addC <- task
+	tw.put(task)
 	return task
 }
 
 func (tw *TimeWheel) put(task *Task) {
+	tw.Lock()
+	defer tw.Unlock()
+
 	tw.store(task, false)
 }
 
@@ -296,11 +300,15 @@ func (tw *TimeWheel) calculateIndex(delay time.Duration) (index int) {
 }
 
 func (tw *TimeWheel) Remove(task *Task) error {
-	tw.removeC <- task
+	// tw.removeC <- task
+	tw.remove(task)
 	return nil
 }
 
 func (tw *TimeWheel) remove(task *Task) {
+	tw.Lock()
+	defer tw.Unlock()
+
 	tw.collectTask(task)
 }
 
