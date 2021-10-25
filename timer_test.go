@@ -209,6 +209,32 @@ func TestTickerSecond(t *testing.T) {
 	assert.Greater(t, incr, 100)
 }
 
+func TestTickerSecondLess(t *testing.T) {
+	tw, err := NewTimeWheel(10*time.Millisecond, 10000)
+	assert.Nil(t, err)
+
+	tw.Start()
+	defer tw.Stop()
+
+	var (
+		timeout = time.After(1100 * time.Millisecond)
+		ticker  = tw.NewTicker(9 * time.Millisecond)
+		incr    int
+	)
+
+	for run := true; run; {
+		select {
+		case <-timeout:
+			run = false
+
+		case <-ticker.C:
+			incr++
+		}
+	}
+
+	assert.Greater(t, incr, 100)
+}
+
 func TestBatchTicker(t *testing.T) {
 	tw, err := NewTimeWheel(100*time.Millisecond, 60)
 	assert.Nil(t, err)
