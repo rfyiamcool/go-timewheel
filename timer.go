@@ -126,6 +126,7 @@ func (tw *TimeWheel) Start() {
 	tw.onceStart.Do(
 		func() {
 			tw.ticker = time.NewTicker(tw.tick)
+			tw.exited = false
 			go tw.schduler()
 			go tw.tickGenerator()
 		},
