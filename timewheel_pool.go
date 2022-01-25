@@ -18,7 +18,7 @@ func NewTimeWheelPool(size int, tick time.Duration, bucketsNum int, options ...o
 		size: int64(size),
 	}
 
-	for index := 0; index < bucketsNum; index++ {
+	for index := 0; index < size; index++ {
 		tw, err := NewTimeWheel(tick, bucketsNum, options...)
 		if err != nil {
 			return twp, err
