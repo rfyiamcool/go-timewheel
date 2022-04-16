@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rfyiamcool/go-timewheel"
+	"github.com/RandomCivil/go-timewheel"
 )
 
 func main() {
