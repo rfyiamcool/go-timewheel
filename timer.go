@@ -46,6 +46,10 @@ func (t *Task) Reset() {
 	t.circle = false
 }
 
+func (t *Task) ID() int64 {
+	return int64(t.id)
+}
+
 type optionCall func(*TimeWheel) error
 
 func TickSafeMode() optionCall {
