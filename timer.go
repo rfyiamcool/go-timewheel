@@ -24,7 +24,7 @@ type taskID int64
 
 type Task struct {
 	delay    time.Duration
-	id       taskID
+	ID       taskID
 	round    int
 	callback func()
 
@@ -37,17 +37,13 @@ type Task struct {
 // for sync.Pool
 func (t *Task) Reset() {
 	t.delay = 0
-	t.id = 0
+	t.ID = 0
 	t.round = 0
 	t.callback = nil
 
 	t.async = false
 	t.stop = false
 	t.circle = false
-}
-
-func (t *Task) ID() int64 {
-	return int64(t.id)
 }
 
 type optionCall func(*TimeWheel) error
@@ -178,9 +174,9 @@ func (tw *TimeWheel) Stop() {
 }
 
 func (tw *TimeWheel) collectTask(task *Task) {
-	index := tw.bucketIndexes[task.id]
-	delete(tw.bucketIndexes, task.id)
-	delete(tw.buckets[index], task.id)
+	index := tw.bucketIndexes[task.ID]
+	delete(tw.bucketIndexes, task.ID)
+	delete(tw.buckets[index], task.ID)
 
 	// todo:
 	// if tw.syncPool {
@@ -255,7 +251,7 @@ func (tw *TimeWheel) addAny(delay time.Duration, callback func(), circle, async 
 	// }
 
 	task.delay = delay
-	task.id = id
+	task.ID = id
 	task.callback = callback
 	task.circle = circle
 	task.async = async // refer to src/runtime/time.go
@@ -285,8 +281,8 @@ func (tw *TimeWheel) store(task *Task, circleMode bool) {
 		task.round = round
 	}
 
-	tw.bucketIndexes[task.id] = index
-	tw.buckets[index][task.id] = task
+	tw.bucketIndexes[task.ID] = index
+	tw.buckets[index][task.ID] = task
 }
 
 func (tw *TimeWheel) calculateRound(delay time.Duration) (round int) {
