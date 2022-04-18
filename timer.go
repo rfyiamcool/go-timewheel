@@ -24,7 +24,7 @@ type taskID int64
 
 type Task struct {
 	delay    time.Duration
-	ID       taskID
+	id       int64
 	round    int
 	callback func()
 
@@ -34,10 +34,14 @@ type Task struct {
 	// circleNum int
 }
 
+func (t *Task) ID() int64 {
+	return t.id
+}
+
 // for sync.Pool
 func (t *Task) Reset() {
 	t.delay = 0
-	t.ID = 0
+	t.id = 0
 	t.round = 0
 	t.callback = nil
 
@@ -71,8 +75,8 @@ type TimeWheel struct {
 	tickQueue chan time.Time
 
 	bucketsNum    int
-	buckets       []map[taskID]*Task // key: added item, value: *Task
-	bucketIndexes map[taskID]int     // key: added item, value: bucket position
+	buckets       []map[int64]*Task // key: added item, value: *Task
+	bucketIndexes map[int64]int     // key: added item, value: bucket position
 
 	currentIndex int
 
@@ -101,8 +105,8 @@ func NewTimeWheel(tick time.Duration, bucketsNum int, options ...optionCall) (*T
 
 		// store
 		bucketsNum:    bucketsNum,
-		bucketIndexes: make(map[taskID]int, 1024*100),
-		buckets:       make([]map[taskID]*Task, bucketsNum),
+		bucketIndexes: make(map[int64]int, 1024*100),
+		buckets:       make([]map[int64]*Task, bucketsNum),
 		currentIndex:  0,
 
 		// signal
@@ -110,7 +114,7 @@ func NewTimeWheel(tick time.Duration, bucketsNum int, options ...optionCall) (*T
 	}
 
 	for i := 0; i < bucketsNum; i++ {
-		tw.buckets[i] = make(map[taskID]*Task, 16)
+		tw.buckets[i] = make(map[int64]*Task, 16)
 	}
 
 	for _, op := range options {
@@ -174,9 +178,9 @@ func (tw *TimeWheel) Stop() {
 }
 
 func (tw *TimeWheel) collectTask(task *Task) {
-	index := tw.bucketIndexes[task.ID]
-	delete(tw.bucketIndexes, task.ID)
-	delete(tw.buckets[index], task.ID)
+	index := tw.bucketIndexes[task.id]
+	delete(tw.bucketIndexes, task.id)
+	delete(tw.buckets[index], task.id)
 
 	// todo:
 	// if tw.syncPool {
@@ -251,7 +255,7 @@ func (tw *TimeWheel) addAny(delay time.Duration, callback func(), circle, async 
 	// }
 
 	task.delay = delay
-	task.ID = id
+	task.id = id
 	task.callback = callback
 	task.circle = circle
 	task.async = async // refer to src/runtime/time.go
@@ -281,8 +285,8 @@ func (tw *TimeWheel) store(task *Task, circleMode bool) {
 		task.round = round
 	}
 
-	tw.bucketIndexes[task.ID] = index
-	tw.buckets[index][task.ID] = task
+	tw.bucketIndexes[task.id] = index
+	tw.buckets[index][task.id] = task
 }
 
 func (tw *TimeWheel) calculateRound(delay time.Duration) (round int) {
@@ -478,7 +482,7 @@ func notfiyChannel(q chan bool) {
 	}
 }
 
-func (tw *TimeWheel) genUniqueID() taskID {
+func (tw *TimeWheel) genUniqueID() int64 {
 	id := atomic.AddInt64(&tw.randomID, 1)
-	return taskID(id)
+	return id
 }
