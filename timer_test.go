@@ -74,7 +74,7 @@ func TestAddStopCron(t *testing.T) {
 	})
 
 	time.AfterFunc(5*time.Second, func() {
-		tw.Remove(task)
+		tw.Remove(task.id)
 	})
 
 	exitTimer := time.NewTimer(10 * time.Second)
@@ -349,7 +349,7 @@ func TestRemove(t *testing.T) {
 
 	// remove action after add action
 	time.AfterFunc(time.Millisecond*10, func() {
-		tw.Remove(task)
+		tw.Remove(task.id)
 	})
 
 	exitTimer := time.NewTimer(1 * time.Second)
@@ -497,7 +497,7 @@ func TestAddRemove(t *testing.T) {
 			atomic.AddInt64(&incr, 1)
 		})
 
-		tw.Remove(task)
+		tw.Remove(task.id)
 	}
 
 	time.Sleep(2 * time.Second)

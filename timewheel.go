@@ -25,8 +25,8 @@ func AddCron(delay time.Duration, callback func()) *Task {
 	return DefaultTimeWheel.AddCron(delay, callback)
 }
 
-func Remove(task *Task) error {
-	return DefaultTimeWheel.Remove(task)
+func Remove(taskId int64) error {
+	return DefaultTimeWheel.Remove(taskId)
 }
 
 func NewTimer(delay time.Duration) *Timer {

@@ -177,10 +177,10 @@ func (tw *TimeWheel) Stop() {
 	tw.stopC <- struct{}{}
 }
 
-func (tw *TimeWheel) collectTask(task *Task) {
-	index := tw.bucketIndexes[task.id]
-	delete(tw.bucketIndexes, task.id)
-	delete(tw.buckets[index], task.id)
+func (tw *TimeWheel) collectTask(taskId int64) {
+	index := tw.bucketIndexes[taskId]
+	delete(tw.bucketIndexes, taskId)
+	delete(tw.buckets[index], taskId)
 
 	// todo:
 	// if tw.syncPool {
@@ -195,7 +195,7 @@ func (tw *TimeWheel) handleTick() {
 	bucket := tw.buckets[tw.currentIndex]
 	for k, task := range bucket {
 		if task.stop {
-			tw.collectTask(task)
+			tw.collectTask(task.id)
 			continue
 		}
 
@@ -213,13 +213,13 @@ func (tw *TimeWheel) handleTick() {
 
 		// circle
 		if task.circle == true {
-			tw.collectTask(task)
+			tw.collectTask(task.id)
 			tw.putCircle(task, modeIsCircle)
 			continue
 		}
 
 		// gc
-		tw.collectTask(task)
+		tw.collectTask(task.id)
 	}
 
 	if tw.currentIndex == tw.bucketsNum-1 {
@@ -303,17 +303,17 @@ func (tw *TimeWheel) calculateIndex(delay time.Duration) (index int) {
 	return
 }
 
-func (tw *TimeWheel) Remove(task *Task) error {
+func (tw *TimeWheel) Remove(taskId int64) error {
 	// tw.removeC <- task
-	tw.remove(task)
+	tw.remove(taskId)
 	return nil
 }
 
-func (tw *TimeWheel) remove(task *Task) {
+func (tw *TimeWheel) remove(taskId int64) {
 	tw.Lock()
 	defer tw.Unlock()
 
-	tw.collectTask(task)
+	tw.collectTask(taskId)
 }
 
 func (tw *TimeWheel) NewTimer(delay time.Duration) *Timer {
@@ -453,7 +453,7 @@ func (t *Timer) Stop() {
 
 	t.task.stop = true
 	t.cancel()
-	t.tw.Remove(t.task)
+	t.tw.Remove(t.task.id)
 }
 
 func (t *Timer) AddStopFunc(callback func()) {
@@ -472,7 +472,7 @@ type Ticker struct {
 func (t *Ticker) Stop() {
 	t.task.stop = true
 	t.cancel()
-	t.tw.Remove(t.task)
+	t.tw.Remove(t.task.id)
 }
 
 func notfiyChannel(q chan bool) {
