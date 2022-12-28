@@ -59,6 +59,13 @@ func TickSafeMode() optionCall {
 	}
 }
 
+func SetStartTaskID(taskId int64) optionCall {
+	return func(o *TimeWheel) error {
+		o.randomID = taskId
+		return nil
+	}
+}
+
 // todo:
 // func SetSyncPool(state bool) optionCall {
 // 	return func(o *TimeWheel) error {
@@ -134,6 +141,10 @@ func (tw *TimeWheel) Start() {
 			go tw.tickGenerator()
 		},
 	)
+}
+
+func (tw *TimeWheel) StartTaskID() int64 {
+	return tw.randomID
 }
 
 func (tw *TimeWheel) tickGenerator() {
