@@ -76,9 +76,10 @@ timer.Stop()
 similar to time.NewTicker
 
 ```
-timer :=tw.NewTicker(5 * time.Second)
-<- timer.C
-timer.Stop()
+ticker := tw.NewTicker(5 * time.Second)
+<- ticker.C
+ticker.Reset(1 * time.Second)
+ticker.Stop()
 ```
 
 similar to time.AfterFunc

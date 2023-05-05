@@ -337,6 +337,45 @@ func TestTimerReset(t *testing.T) {
 	}
 }
 
+func TestTickerReset(t *testing.T) {
+	tw, _ := NewTimeWheel(100*time.Millisecond, 50)
+	tw.Start()
+	defer tw.Stop()
+
+	ticker := tw.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for index := 1; index < 6; index++ {
+		now := time.Now()
+		<-ticker.C
+
+		checkTimeCost(t, now, time.Now(), 80, 220)
+		fmt.Println(time.Since(now).String())
+	}
+
+	fmt.Println()
+	ticker.Reset(300 * time.Millisecond)
+
+	for index := 1; index < 6; index++ {
+		now := time.Now()
+		<-ticker.C
+
+		checkTimeCost(t, now, time.Now(), 280, 420)
+		fmt.Println(time.Since(now).String())
+	}
+
+	fmt.Println()
+	ticker.Reset(200 * time.Millisecond)
+
+	for index := 1; index < 6; index++ {
+		now := time.Now()
+		<-ticker.C
+
+		checkTimeCost(t, now, time.Now(), 180, 320)
+		fmt.Println(time.Since(now).String())
+	}
+}
+
 func TestRemove(t *testing.T) {
 	tw, _ := NewTimeWheel(100*time.Millisecond, 5)
 	tw.Start()
