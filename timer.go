@@ -237,7 +237,7 @@ func (tw *TimeWheel) AddCron(delay time.Duration, callback func()) *Task {
 }
 
 func (tw *TimeWheel) addAny(delay time.Duration, callback func(), circle, async bool) *Task {
-	if delay <= 0 {
+	if delay < tw.tick {
 		delay = tw.tick
 	}
 
