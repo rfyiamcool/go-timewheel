@@ -316,7 +316,7 @@ func (tw *TimeWheel) NewTimer(delay time.Duration) *Timer {
 	queue := make(chan bool, 1) // buf = 1, refer to src/time/sleep.go
 	task := tw.addAny(delay,
 		func() {
-			notfiyChannel(queue)
+			notifyChannel(queue)
 		},
 		modeNotCircle,
 		modeNotAsync,
@@ -340,7 +340,7 @@ func (tw *TimeWheel) AfterFunc(delay time.Duration, callback func()) *Timer {
 	task := tw.addAny(delay,
 		func() {
 			callback()
-			notfiyChannel(queue)
+			notifyChannel(queue)
 		},
 		modeNotCircle, modeIsAsync,
 	)
@@ -363,7 +363,7 @@ func (tw *TimeWheel) NewTicker(delay time.Duration) *Ticker {
 	queue := make(chan bool, 1)
 	task := tw.addAny(delay,
 		func() {
-			notfiyChannel(queue)
+			notifyChannel(queue)
 		},
 		modeIsCircle,
 		modeNotAsync,
@@ -427,14 +427,14 @@ func (t *Timer) Reset(delay time.Duration) {
 		task = t.tw.addAny(delay,
 			func() {
 				t.fn()
-				notfiyChannel(t.C)
+				notifyChannel(t.C)
 			},
 			modeNotCircle, modeIsAsync, // must async mode
 		)
 	} else {
 		task = t.tw.addAny(delay,
 			func() {
-				notfiyChannel(t.C)
+				notifyChannel(t.C)
 			},
 			modeNotCircle, modeNotAsync)
 	}
@@ -471,7 +471,7 @@ func (t *Ticker) Stop() {
 	t.tw.Remove(t.task)
 }
 
-func notfiyChannel(q chan bool) {
+func notifyChannel(q chan bool) {
 	select {
 	case q <- true:
 	default:
