@@ -223,7 +223,7 @@ func processCallback(taskCount, delay, beforeDiff, afterDiff int) {
 			incrCounter()
 			// log.info("cost: %s, delay: %d", end.Sub(now), delay)
 		}
-		tw.Add(time.Duration(delay)*time.Second, cb)
+		tw.Add(time.Duration(delay)*time.Second, cb, true)
 	}
 }
 

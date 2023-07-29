@@ -24,7 +24,7 @@ func main() {
 		for index := 0; index < count; index++ {
 			tw.Add(time.Duration(1*time.Second), func() {
 				queue <- true
-			})
+			}, true)
 		}
 		fmt.Println("add timer cost: ", time.Since(start))
 

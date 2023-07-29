@@ -43,7 +43,7 @@ func TestCalcPos(t *testing.T) {
 }
 
 func TestAddFunc(t *testing.T) {
-	tw, _ := NewTimeWheel(100*time.Millisecond, 5, TickSafeMode())
+	tw, _ := NewTimeWheel(100*time.Millisecond, 5, TickSafeMode(100*time.Millisecond*10))
 	tw.Start()
 	defer tw.Stop()
 
@@ -52,7 +52,7 @@ func TestAddFunc(t *testing.T) {
 		start := time.Now()
 		tw.Add(time.Duration(index)*time.Second, func() {
 			queue <- true
-		})
+		}, modeIsAsync)
 
 		<-queue
 
@@ -71,7 +71,7 @@ func TestAddStopCron(t *testing.T) {
 	queue := make(chan time.Time, 2)
 	task := tw.AddCron(time.Second*1, func() {
 		queue <- time.Now()
-	})
+	}, modeIsAsync)
 
 	time.AfterFunc(5*time.Second, func() {
 		tw.Remove(task)
@@ -345,7 +345,7 @@ func TestRemove(t *testing.T) {
 	queue := make(chan bool, 0)
 	task := tw.Add(time.Millisecond*500, func() {
 		queue <- true
-	})
+	}, modeIsAsync)
 
 	// remove action after add action
 	time.AfterFunc(time.Millisecond*10, func() {
@@ -398,7 +398,7 @@ func BenchmarkAdd(b *testing.B) {
 	defer tw.Stop()
 
 	for i := 0; i < b.N; i++ {
-		tw.Add(time.Second, func() {})
+		tw.Add(time.Second, func() {}, modeIsAsync)
 	}
 }
 
@@ -485,7 +485,7 @@ func TestResetStop2WithMill(t *testing.T) {
 }
 
 func TestAddRemove(t *testing.T) {
-	tw, err := NewTimeWheel(100*time.Millisecond, 10000, TickSafeMode())
+	tw, err := NewTimeWheel(100*time.Millisecond, 10000, TickSafeMode(100*time.Millisecond*10))
 	assert.Equal(t, nil, err)
 
 	tw.Start()
@@ -495,7 +495,7 @@ func TestAddRemove(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		task := tw.Add(1*time.Second, func() {
 			atomic.AddInt64(&incr, 1)
-		})
+		}, modeIsAsync)
 
 		tw.Remove(task)
 	}
@@ -506,7 +506,7 @@ func TestAddRemove(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		tw.Add(1*time.Second, func() {
 			atomic.AddInt64(&incr, 1)
-		})
+		}, modeIsAsync)
 	}
 
 	time.Sleep(2 * time.Second)
