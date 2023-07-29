@@ -48,9 +48,13 @@ func (t *Task) Reset() {
 
 type optionCall func(*TimeWheel) error
 
-func TickSafeMode() optionCall {
+func TickSafeMode(bufferedTime time.Duration) optionCall {
 	return func(o *TimeWheel) error {
-		o.tickQueue = make(chan time.Time, 10)
+		if bufferedTime < o.tick {
+			return errors.New("tick safe mode config error: the bufferedTime " +
+				"should not be smaller than the timer's trigger interval")
+		}
+		o.tickQueue = make(chan time.Time, bufferedTime/o.tick)
 		return nil
 	}
 }
@@ -133,7 +137,7 @@ func (tw *TimeWheel) Start() {
 }
 
 func (tw *TimeWheel) tickGenerator() {
-	if tw.tickQueue != nil {
+	if tw.tickQueue == nil {
 		return
 	}
 
@@ -151,7 +155,7 @@ func (tw *TimeWheel) tickGenerator() {
 
 func (tw *TimeWheel) schduler() {
 	queue := tw.ticker.C
-	if tw.tickQueue == nil {
+	if tw.tickQueue != nil {
 		queue = tw.tickQueue
 	}
 
@@ -173,15 +177,15 @@ func (tw *TimeWheel) Stop() {
 	tw.stopC <- struct{}{}
 }
 
-func (tw *TimeWheel) collectTask(task *Task) {
+func (tw *TimeWheel) collectTask(task *Task) bool {
 	index := tw.bucketIndexes[task.id]
+	_, ok := tw.bucketIndexes[task.id]
+	if !ok {
+		return false
+	}
 	delete(tw.bucketIndexes, task.id)
 	delete(tw.buckets[index], task.id)
-
-	// todo:
-	// if tw.syncPool {
-	// 	defaultTaskPool.put(task)
-	// }
+	return true
 }
 
 func (tw *TimeWheel) handleTick() {
@@ -227,13 +231,13 @@ func (tw *TimeWheel) handleTick() {
 }
 
 // Add add an task
-func (tw *TimeWheel) Add(delay time.Duration, callback func()) *Task {
-	return tw.addAny(delay, callback, modeNotCircle, modeIsAsync)
+func (tw *TimeWheel) Add(delay time.Duration, callback func(), async bool) *Task {
+	return tw.addAny(delay, callback, modeNotCircle, async)
 }
 
 // AddCron add interval task
-func (tw *TimeWheel) AddCron(delay time.Duration, callback func()) *Task {
-	return tw.addAny(delay, callback, modeIsCircle, modeIsAsync)
+func (tw *TimeWheel) AddCron(delay time.Duration, callback func(), async bool) *Task {
+	return tw.addAny(delay, callback, modeIsCircle, async)
 }
 
 func (tw *TimeWheel) addAny(delay time.Duration, callback func(), circle, async bool) *Task {
@@ -299,17 +303,16 @@ func (tw *TimeWheel) calculateIndex(delay time.Duration) (index int) {
 	return
 }
 
-func (tw *TimeWheel) Remove(task *Task) error {
+func (tw *TimeWheel) Remove(task *Task) bool {
 	// tw.removeC <- task
-	tw.remove(task)
-	return nil
+	return tw.remove(task)
 }
 
-func (tw *TimeWheel) remove(task *Task) {
+func (tw *TimeWheel) remove(task *Task) bool {
 	tw.Lock()
 	defer tw.Unlock()
 
-	tw.collectTask(task)
+	return tw.collectTask(task)
 }
 
 func (tw *TimeWheel) NewTimer(delay time.Duration) *Timer {

@@ -1,6 +1,7 @@
 package timewheel
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -17,16 +18,20 @@ func ResetDefaultTimeWheel(tw *TimeWheel) {
 	DefaultTimeWheel = tw
 }
 
-func Add(delay time.Duration, callback func()) *Task {
-	return DefaultTimeWheel.Add(delay, callback)
+func Add(delay time.Duration, callback func(), async bool) *Task {
+	return DefaultTimeWheel.Add(delay, callback, async)
 }
 
-func AddCron(delay time.Duration, callback func()) *Task {
-	return DefaultTimeWheel.AddCron(delay, callback)
+func AddCron(delay time.Duration, callback func(), async bool) *Task {
+	return DefaultTimeWheel.AddCron(delay, callback, async)
 }
 
 func Remove(task *Task) error {
-	return DefaultTimeWheel.Remove(task)
+	if ok := DefaultTimeWheel.Remove(task); !ok {
+		return fmt.Errorf("fail to remove task:%v", task)
+	}
+	
+	return nil
 }
 
 func NewTimer(delay time.Duration) *Timer {
